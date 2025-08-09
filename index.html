@@ -25,7 +25,7 @@
     .sep{width:1px;height:24px;background:var(--border)}
 
     /* Controls */
-    .controls{margin-top:18px;display:grid;grid-template-columns:1.2fr .8fr .6fr auto auto;gap:10px}
+    .controls{margin-top:18px;display:grid;grid-template-columns:1.3fr auto auto auto auto;gap:10px}
     input, select, button{height:40px;border:1px solid var(--border);background:var(--panel);color:var(--text);padding:0 12px;border-radius:12px;outline:none}
     input::placeholder{color:#6b7889}
     button{cursor:pointer;background:linear-gradient(180deg,#16202b,#121821);border:1px solid #1b2633}
@@ -33,6 +33,7 @@
     button.ghost{background:transparent}
     button:disabled{opacity:.6;cursor:not-allowed}
     label{font-size:12px;color:var(--muted)}
+    .hint{font-size:12px;color:var(--muted)}
 
     /* Grid */
     .grid{margin-top:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
@@ -41,7 +42,7 @@
     .card-head{display:flex;justify-content:space-between;gap:10px}
     .title{display:flex;align-items:center;gap:8px;font-weight:600}
     .desc{font-size:12px;color:var(--muted);margin-top:6px;min-height:32px}
-    .actions{display:flex;gap:6px;opacity:.8}
+    .actions{display:flex;gap:6px;opacity:.9}
     .actions button{height:30px;padding:0 8px;border-radius:10px}
     .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
     .stat{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
@@ -49,13 +50,15 @@
     .meta{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--muted)}
     canvas{width:100%!important;height:90px!important;margin-top:10px}
     .badge{background:#121b26;border:1px solid var(--border);color:#c9e4ff;padding:2px 8px;border-radius:999px;font-size:11px}
-    .pin{position:absolute;top:12px;right:12px}
 
     /* Modal */
     dialog{border:none;border-radius:16px;padding:0;background:var(--panel);color:var(--text);box-shadow:0 20px 60px rgba(0,0,0,.5)}
-    .modal{padding:18px 18px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+    .modal{padding:18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
     .modal h3{margin:0;font-size:16px}
     .modal-body{padding:16px}
+    .list{max-height:60vh;overflow:auto;border:1px solid var(--border);border-radius:12px}
+    .repo-row{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid #16202a}
+    .repo-row:last-child{border-bottom:none}
 
     /* Footer */
     footer{margin:28px 0 8px;color:var(--muted);font-size:12px;display:flex;justify-content:center}
@@ -80,30 +83,36 @@
         </div>
       </div>
       <div class="row">
-        <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Data fetched directly; stored locally</div>
+        <div class="chip" title="Data fetched directly; stored locally">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Local‑only storage · GitHub API
+        </div>
         <div class="sep"></div>
         <button class="ghost" id="openSettings">Settings</button>
         <button id="refreshBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg> Refresh</button>
       </div>
     </header>
 
+    <!-- TOP: username + arrow to repo picker -->
     <section class="controls">
-      <input id="owner" placeholder="owner (e.g. vercel)" />
-      <input id="name" placeholder="repo (e.g. next.js)" />
+      <input id="username" placeholder="GitHub username (e.g. vercel)" />
+      <button id="browseRepos">▶ Browse Repos</button>
       <select id="days">
         <option value="14">Last 14 days</option>
         <option value="30" selected>Last 30 days</option>
         <option value="60">Last 60 days</option>
         <option value="90">Last 90 days</option>
       </select>
-      <button class="primary" id="addRepo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg> Add</button>
       <button class="ghost" id="exportBtn">Export</button>
+      <button class="ghost" id="importBtn">Import</button>
     </section>
+    <div class="hint" style="margin-top:6px">Tip: Click <b>Browse Repos</b> to add from a username. You can pin cards, open details, or remove them.
+    </div>
 
     <section class="grid" id="grid"></section>
 
     <footer>
-      <div>Tip: add a GitHub Personal Access Token in Settings for higher API rate limits. Your token never leaves your browser.</div>
+      <div>Add a GitHub Personal Access Token in Settings for higher API rate limits. Your token never leaves your browser.</div>
     </footer>
   </div>
 
@@ -121,10 +130,28 @@
         </div>
         <button id="saveToken" class="primary">Save</button>
       </div>
-      <div class="sub">Stored in localStorage. Remove to use unauthenticated calls (low rate limits).</div>
-      <div style="height:12px"></div>
-      <button id="importBtn">Import profile…</button>
-      <button id="wipeBtn" style="margin-left:8px;color:#ffb4a8;border-color:#3a1e20;background:#1a0f11">Wipe local data</button>
+      <div style="display:flex;gap:10px;align-items:center;margin:8px 0">
+        <button id="testToken">Test token</button>
+        <div id="rateInfo" class="hint"></div>
+      </div>
+      <div style="margin-top:10px">
+        <button id="wipeBtn" style="color:#ffb4a8;border-color:#3a1e20;background:#1a0f11">Wipe local data</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Repo Picker Modal (from username) -->
+  <dialog id="picker">
+    <div class="modal">
+      <h3>Add repositories from <span id="pickerUser"></span></h3>
+      <button id="closePicker" class="ghost">Close</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <input id="repoSearch" placeholder="Filter repos" style="flex:1">
+        <button id="reloadRepos">Reload</button>
+      </div>
+      <div class="list" id="repoList"></div>
     </div>
   </dialog>
 
@@ -151,76 +178,143 @@
 // ------------------------------
 // RepoRadar — HTML/CSS/JS only
 // ------------------------------
-const LS_KEY = 'reporadar:v1';
-const state = load();
+const LS_KEY = 'reporadar:v2';
 const grid = document.getElementById('grid');
-const ownerEl = document.getElementById('owner');
-const nameEl = document.getElementById('name');
+const usernameEl = document.getElementById('username');
 const daysEl = document.getElementById('days');
-const addBtn = document.getElementById('addRepo');
+const browseBtn = document.getElementById('browseRepos');
 const refreshBtn = document.getElementById('refreshBtn');
 const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
 const tokenInput = document.getElementById('token');
 const settings = document.getElementById('settings');
-const details = document.getElementById('details');
 const openSettingsBtn = document.getElementById('openSettings');
 const closeSettingsBtn = document.getElementById('closeSettings');
 const saveTokenBtn = document.getElementById('saveToken');
-const importBtn = document.getElementById('importBtn');
+const testTokenBtn = document.getElementById('testToken');
+const rateInfo = document.getElementById('rateInfo');
 const wipeBtn = document.getElementById('wipeBtn');
+const picker = document.getElementById('picker');
+const pickerUser = document.getElementById('pickerUser');
+const closePickerBtn = document.getElementById('closePicker');
+const repoList = document.getElementById('repoList');
+const repoSearch = document.getElementById('repoSearch');
+const reloadReposBtn = document.getElementById('reloadRepos');
+const details = document.getElementById('details');
+const detailsTitle = document.getElementById('detailsTitle');
+const detailsInfo = document.getElementById('detailsInfo');
+const repoLink = document.getElementById('repoLink');
+const prLink = document.getElementById('prLink');
+const relLink = document.getElementById('relLink');
 const toast = document.getElementById('toast');
 
-let repoCache = {}; // key -> data
 let charts = {};    // key -> Chart.js instance
+let repoCache = {}; // key -> data
 
-// Init UI
+const state = load();
 if (state.days) daysEl.value = String(state.days);
-if (state.token) tokenInput.value = state.token;
 renderAll();
 
-openSettingsBtn.onclick = () => settings.showModal();
+// ---------- Settings Modal ----------
+openSettingsBtn.onclick = () => { tokenInput.value = state.token || ''; settings.showModal(); };
 closeSettingsBtn.onclick = () => settings.close();
 saveTokenBtn.onclick = () => { state.token = tokenInput.value.trim(); save(); toastMsg('Token saved'); };
-importBtn.onclick = () => importProfile();
 wipeBtn.onclick = () => { localStorage.removeItem(LS_KEY); location.reload(); };
-
-addBtn.onclick = () => {
-  const owner = ownerEl.value.trim();
-  const name = nameEl.value.trim();
-  if (!owner || !name) return toastMsg('Enter both owner and repo name');
-  const key = owner + '/' + name;
-  if (state.repos.find(r => r.owner.toLowerCase()+'/'+r.name.toLowerCase() === key.toLowerCase())) return toastMsg('Already added');
-  state.repos.push({owner, name});
-  save();
-  ownerEl.value = '';
-  nameEl.value = '';
-  fetchAndRenderOne({owner, name});
+testTokenBtn.onclick = async () => {
+  rateInfo.textContent = 'Testing…';
+  try { const j = await gh('/rate_limit');
+    const core = j.resources.core;
+    rateInfo.textContent = `Core remaining: ${core.remaining}/${core.limit}, resets at ${new Date(core.reset*1000).toLocaleTimeString()}`;
+  } catch(e){ rateInfo.textContent = 'Error: '+e.message; }
 };
 
-refreshBtn.onclick = () => { renderAll(true); };
+// ---------- Picker Modal (username → repos) ----------
+browseBtn.onclick = async () => {
+  const u = usernameEl.value.trim();
+  if (!u) return toastMsg('Enter a GitHub username first');
+  pickerUser.textContent = u;
+  picker.showModal();
+  await loadUserRepos(u);
+};
+closePickerBtn.onclick = () => picker.close();
+reloadReposBtn.onclick = async () => { const u = pickerUser.textContent; if (u) await loadUserRepos(u); };
+repoSearch.oninput = () => filterRepoList(repoSearch.value.trim().toLowerCase());
+
+async function loadUserRepos(user){
+  repoList.innerHTML = '<div class="hint" style="padding:10px">Loading…</div>';
+  try {
+    let page = 1; const per=100; const repos=[];
+    while(true){
+      const arr = await gh(`/users/${encodeURIComponent(user)}/repos?per_page=${per}&page=${page}&sort=updated`);
+      repos.push(...arr);
+      if (arr.length < per) break; else page++;
+      if (page>5) break; // soft cap
+    }
+    renderRepoList(repos);
+  } catch(e){
+    repoList.innerHTML = `<div class="hint" style="padding:10px;color:#ffb4a8">Error: ${e.message}</div>`;
+  }
+}
+
+function renderRepoList(repos){
+  if (!repos.length){ repoList.innerHTML = '<div class="hint" style="padding:10px">No public repos found.</div>'; return; }
+  const frag = document.createDocumentFragment();
+  repos.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'repo-row';
+    row.dataset.name = r.name.toLowerCase();
+    row.dataset.desc = (r.description||'').toLowerCase();
+    row.innerHTML = `
+      <div>
+        <div style="font-weight:600">${r.full_name}</div>
+        <div class="hint">${r.description||''}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="hint">⭐ ${r.stargazers_count}</span>
+        <button data-add="${r.owner.login}/${r.name}" class="primary">Add</button>
+      </div>`;
+    frag.appendChild(row);
+  });
+  repoList.innerHTML = '';
+  repoList.appendChild(frag);
+}
+
+repoList.addEventListener('click', (e)=>{
+  const t = e.target; if (!(t instanceof HTMLElement)) return;
+  if (t.matches('button[data-add]')){
+    const key = t.getAttribute('data-add');
+    const [owner,name] = key.split('/');
+    addRepo({owner,name});
+  }
+});
+
+function filterRepoList(q){
+  Array.from(repoList.children).forEach(el => {
+    const name = el.dataset.name||'';
+    const desc = el.dataset.desc||'';
+    el.style.display = (name.includes(q) || desc.includes(q)) ? '' : 'none';
+  });
+}
+
+// ---------- Dashboard core ----------
+refreshBtn.onclick = () => renderAll(true);
 exportBtn.onclick = () => {
   const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'reporadar-profile.json';
-  a.click();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'reporadar-profile.json'; a.click();
 };
-
+importBtn.onclick = () => importProfile();
 daysEl.onchange = () => { state.days = Number(daysEl.value); save(); renderAll(true); };
 
-document.addEventListener('click', (e) => {
-  if (e.target.matches('.remove')) {
-    const key = e.target.getAttribute('data-key');
-    state.repos = state.repos.filter(r => (r.owner+'/'+r.name) !== key);
-    save();
-    document.querySelector(`[data-card="${key}"]`)?.remove();
-  } else if (e.target.matches('.pin')) {
-    const key = e.target.getAttribute('data-key');
-    const pinned = repoCache[key]?.pinned = !repoCache[key]?.pinned;
-    sortCards();
-  } else if (e.target.matches('.open')) {
-    const key = e.target.getAttribute('data-key');
-    openDetails(key);
+grid.addEventListener('click', (e) => {
+  const t = e.target; if (!(t instanceof HTMLElement)) return;
+  if (t.closest('[data-act="remove"]')){
+    const card = t.closest('.card'); const key = card.dataset.card;
+    state.repos = state.repos.filter(r => (r.owner+'/'+r.name) !== key); save(); card.remove();
+  } else if (t.closest('[data-act="pin"]')){
+    const key = t.closest('.card').dataset.card;
+    repoCache[key] = repoCache[key]||{}; repoCache[key].pinned = !repoCache[key].pinned; sortCards();
+  } else if (t.closest('[data-act="open"]')){
+    const key = t.closest('.card').dataset.card; openDetails(key);
   }
 });
 
@@ -230,9 +324,7 @@ function load(){
   try { return JSON.parse(raw); } catch { return { repos: [], token: '', days: 30 } }
 }
 function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-
-function toastMsg(msg){ toast.textContent = msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 1500); }
-
+function toastMsg(msg){ toast.textContent = msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 1400); }
 function isoDaysAgo(days){ const d=new Date(); d.setDate(d.getDate()-days); return d.toISOString(); }
 function num(n){ return (n===undefined||n===null) ? '—' : new Intl.NumberFormat().format(n); }
 function timeAgo(iso){ if(!iso) return '—'; const diff=Date.now()-new Date(iso).getTime(); const m=Math.floor(diff/60000); if(m<60) return m+'m ago'; const h=Math.floor(m/60); if(h<48) return h+'h ago'; const d=Math.floor(h/24); return d+'d ago'; }
@@ -262,9 +354,9 @@ function cardSkeleton(key, owner, name){
         <div class="desc" data-desc="${key}">Loading…</div>
       </div>
       <div class="actions">
-        <button title="Pin" class="pin" data-key="${key}">📌</button>
-        <button title="Open details" class="open" data-key="${key}">📊</button>
-        <button title="Remove" class="remove" data-key="${key}">🗑️</button>
+        <button title="Pin" data-act="pin">📌</button>
+        <button title="Open details" data-act="open">📊</button>
+        <button title="Remove" data-act="remove">🗑️</button>
       </div>
     </div>
     <div class="stats">
@@ -314,29 +406,26 @@ async function fetchRepoData(owner, name){
   return { key, meta, openPrs, latestTag, latestAt, series };
 }
 
+function addRepo(r){
+  const key = r.owner+'/'+r.name;
+  if (state.repos.find(x => (x.owner+'/'+x.name).toLowerCase()===key.toLowerCase())){ toastMsg('Already added'); return; }
+  state.repos.push({owner:r.owner, name:r.name}); save();
+  fetchAndRenderOne(r);
+}
+
 function renderAll(force=false){
-  grid.innerHTML='';
-  repoCache={};
+  grid.innerHTML=''; repoCache={};
   const list = [...state.repos];
-  // Render skeletons first
-  for (const r of list){
-    const key = r.owner+'/'+r.name;
-    grid.appendChild(cardSkeleton(key, r.owner, r.name));
-  }
-  // Fetch sequentially to avoid rate-limit spikes
-  (async ()=>{
-    for (const r of list){ await fetchAndRenderOne(r, force); }
-    sortCards();
-  })();
+  for (const r of list){ const key=r.owner+'/'+r.name; grid.appendChild(cardSkeleton(key, r.owner, r.name)); }
+  (async ()=>{ for (const r of list){ await fetchAndRenderOne(r, force); } sortCards(); })();
 }
 
 async function fetchAndRenderOne(r, force=false){
   const key = r.owner+'/'+r.name;
-  const card = document.querySelector(`[data-card="${key}"]`);
+  const card = document.querySelector(`[data-card="${key}"]`) || (function(){ const el = cardSkeleton(key, r.owner, r.name); grid.appendChild(el); return el; })();
   try{
     const data = await fetchRepoData(r.owner, r.name);
     repoCache[key] = { pinned: repoCache[key]?.pinned||false, ...data };
-    // Fill UI
     card.querySelector(`[data-desc="${key}"]`).textContent = data.meta.description || '';
     card.querySelector(`[data-stars="${key}"]`).textContent = num(data.meta.stargazers_count);
     card.querySelector(`[data-forks="${key}"]`).textContent = num(data.meta.forks_count);
@@ -344,99 +433,59 @@ async function fetchAndRenderOne(r, force=false){
     card.querySelector(`[data-prs="${key}"]`).textContent = num(data.openPrs);
     card.querySelector(`[data-upd="${key}"]`).textContent = timeAgo(data.meta.pushed_at);
     card.querySelector(`[data-rel="${key}"]`).textContent = data.latestTag || '—';
-    // Chart
     drawChart('chart-'+cssEscape(key), data.series);
-    // Pin badge
     card.querySelector(`[data-pin="${key}"]`).style.display = repoCache[key].pinned? 'inline-block':'none';
-  }catch(e){
-    card.querySelector(`[data-desc="${key}"]`).textContent = 'Error: '+e.message;
-  }
+  }catch(e){ card.querySelector(`[data-desc="${key}"]`).textContent = 'Error: '+e.message; }
 }
 
 function drawChart(canvasId, series){
-  const ctx = document.getElementById(canvasId).getContext('2d');
+  const canvas = document.getElementById(canvasId); if (!canvas) return;
+  const ctx = canvas.getContext('2d');
   if (charts[canvasId]) charts[canvasId].destroy();
   charts[canvasId] = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels: series.map(p=>p.t),
-      datasets: [{
-        data: series.map(p=>p.count),
-        tension:.35, fill:true, pointRadius:0, borderWidth:2,
-        borderColor:getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()||'#3aa0ff',
-        backgroundColor: ctx.createLinearGradient(0,0,0,120)
-      }]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      scales:{x:{display:false}, y:{display:false}},
-      plugins:{legend:{display:false}, tooltip:{enabled:true, displayColors:false}}
-    }
+    data: { labels: series.map(p=>p.t), datasets: [{ data: series.map(p=>p.count), tension:.35, fill:true, pointRadius:0, borderWidth:2, borderColor:getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()||'#3aa0ff', backgroundColor: ctx.createLinearGradient(0,0,0,120) }] },
+    options: { responsive:true, maintainAspectRatio:false, scales:{x:{display:false}, y:{display:false}}, plugins:{legend:{display:false}, tooltip:{enabled:true, displayColors:false}} }
   });
-  // gradient fill
-  const g = charts[canvasId].data.datasets[0].backgroundColor;
-  if (g.addColorStop){ g.addColorStop(0,'rgba(58,160,255,.25)'); g.addColorStop(1,'rgba(58,160,255,0)'); charts[canvasId].update(); }
+  const g = charts[canvasId].data.datasets[0].backgroundColor; if (g.addColorStop){ g.addColorStop(0,'rgba(58,160,255,.25)'); g.addColorStop(1,'rgba(58,160,255,0)'); charts[canvasId].update(); }
 }
 
 function sortCards(){
-  // pinned first, then by pushed_at desc
   const cards = Array.from(grid.children);
   cards.sort((a,b)=>{
     const ka = a.dataset.card, kb = b.dataset.card;
-    const pa = repoCache[ka]?.pinned ? 0:1;
-    const pb = repoCache[kb]?.pinned ? 0:1;
-    if (pa!==pb) return pa-pb;
+    const pa = repoCache[ka]?.pinned ? 0:1; const pb = repoCache[kb]?.pinned ? 0:1; if (pa!==pb) return pa-pb;
     const ta = repoCache[ka]?.meta?.pushed_at ? new Date(repoCache[ka].meta.pushed_at).getTime() : 0;
     const tb = repoCache[kb]?.meta?.pushed_at ? new Date(repoCache[kb].meta.pushed_at).getTime() : 0;
     return tb - ta;
   });
   for (const c of cards) grid.appendChild(c);
-  // update pin badges
-  for (const key in repoCache){
-    const badge = document.querySelector(`[data-pin="${key}"]`);
-    if (badge) badge.style.display = repoCache[key].pinned? 'inline-block':'none';
-  }
+  for (const key in repoCache){ const badge = document.querySelector(`[data-pin="${key}"]`); if (badge) badge.style.display = repoCache[key].pinned? 'inline-block':'none'; }
 }
 
 function openDetails(key){
   const r = repoCache[key]; if (!r) return;
-  document.getElementById('detailsTitle').textContent = key;
-  document.getElementById('repoLink').href = `https://github.com/${key}`;
-  document.getElementById('prLink').href = `https://github.com/${key}/pulls`;
-  document.getElementById('relLink').href = `https://github.com/${key}/releases`;
-  document.getElementById('detailsInfo').textContent = `Latest release: ${r.latestTag||'—'} · Updated ${timeAgo(r.meta.pushed_at)}`;
+  detailsTitle.textContent = key;
+  repoLink.href = `https://github.com/${key}`;
+  prLink.href = `https://github.com/${key}/pulls`;
+  relLink.href = `https://github.com/${key}/releases`;
+  detailsInfo.textContent = `Latest release: ${r.latestTag||'—'} · Updated ${timeAgo(r.meta.pushed_at)}`;
   details.showModal();
   const ctx = document.getElementById('detailsChart').getContext('2d');
   if (charts['details']) charts['details'].destroy();
-  charts['details'] = new Chart(ctx, {
-    type: 'bar',
-    data: { labels: r.series.map(p=>p.t), datasets: [{ data: r.series.map(p=>p.count) }] },
-    options: { responsive:true, maintainAspectRatio:false, scales:{x:{display:false},y:{display:false}}, plugins:{legend:{display:false}} }
-  });
+  charts['details'] = new Chart(ctx, { type:'bar', data:{ labels:r.series.map(p=>p.t), datasets:[{ data:r.series.map(p=>p.count) }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{x:{display:false},y:{display:false}}, plugins:{legend:{display:false}} } });
 }
 
 document.getElementById('closeDetails').onclick = () => details.close();
 
 async function importProfile(){
-  const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = 'application/json';
-  inp.onchange = async () => {
-    const file = inp.files[0]; if(!file) return;
-    try {
-      const json = JSON.parse(await file.text());
-      if (!json || !Array.isArray(json.repos)) throw new Error('Invalid profile');
-      localStorage.setItem(LS_KEY, JSON.stringify(json));
-      location.reload();
-    } catch(e){ toastMsg('Import failed: '+e.message); }
-  };
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json';
+  inp.onchange = async () => { const file = inp.files[0]; if(!file) return; try { const json = JSON.parse(await file.text()); if (!json || !Array.isArray(json.repos)) throw new Error('Invalid profile'); localStorage.setItem(LS_KEY, JSON.stringify(json)); location.reload(); } catch(e){ toastMsg('Import failed: '+e.message); } };
   inp.click();
 }
 
 // initial fetch
-(async()=>{
-  for (const r of state.repos){ await fetchAndRenderOne(r); }
-  sortCards();
-})();
+(async()=>{ for (const r of state.repos){ await fetchAndRenderOne(r); } sortCards(); })();
 </script>
 </body>
 </html>
