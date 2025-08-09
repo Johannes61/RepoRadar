@@ -1,6 +1,6 @@
-# RepoRadar — Frontend‑only GitHub Dashboard
+# Repo Radar — Frontend‑only GitHub Dashboard
 
-RepoRadar is a lightweight, **HTML/CSS/JavaScript** dashboard that lets you track GitHub repositories without any backend. All data is fetched directly from the GitHub API and stored locally in your browser.
+Repo Radar is a lightweight, **HTML/CSS/JavaScript** dashboard that lets you track GitHub repositories without any backend. All data is fetched directly from the GitHub API and stored locally in your browser.
 
 ## Features
 - **Browse by Username** — Enter a GitHub username and pick repositories from a list.
