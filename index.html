@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RepoRadar — Frontend‑only GitHub Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{--bg:#0b0f14;--panel:#11161d;--muted:#8a98a9;--text:#e6eef8;--primary:#3aa0ff;--border:#1e2631;--good:#30d158;--warn:#ffd60a;--bad:#ff453a}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#091118, #0b0f14);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .container{max-width:1100px;margin:0 auto;padding:24px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{height:40px;width:40px;border-radius:14px;background:linear-gradient(135deg,rgba(58,160,255,.2),rgba(58,160,255,.05));display:grid;place-items:center;border:1px solid var(--border)}
+    .logo svg{opacity:.9}
+    h1{font-size:22px;letter-spacing:.2px;margin:0;font-weight:700}
+    .sub{font-size:12px;color:var(--muted)}
+    .row{display:flex;align-items:center;gap:12px}
+    .chip{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+    .sep{width:1px;height:24px;background:var(--border)}
+
+    /* Controls */
+    .controls{margin-top:18px;display:grid;grid-template-columns:1.2fr .8fr .6fr auto auto;gap:10px}
+    input, select, button{height:40px;border:1px solid var(--border);background:var(--panel);color:var(--text);padding:0 12px;border-radius:12px;outline:none}
+    input::placeholder{color:#6b7889}
+    button{cursor:pointer;background:linear-gradient(180deg,#16202b,#121821);border:1px solid #1b2633}
+    button.primary{background:linear-gradient(180deg,#1b5aa0,#154a84);border:1px solid #18508f;color:#eaf4ff}
+    button.ghost{background:transparent}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    label{font-size:12px;color:var(--muted)}
+
+    /* Grid */
+    .grid{margin-top:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+    .card{background:linear-gradient(180deg,#0f141b,#0d131a);border:1px solid var(--border);border-radius:18px;padding:16px;position:relative;transition:box-shadow .2s,transform .15s}
+    .card:hover{box-shadow:0 6px 24px rgba(0,0,0,.25);transform:translateY(-1px)}
+    .card-head{display:flex;justify-content:space-between;gap:10px}
+    .title{display:flex;align-items:center;gap:8px;font-weight:600}
+    .desc{font-size:12px;color:var(--muted);margin-top:6px;min-height:32px}
+    .actions{display:flex;gap:6px;opacity:.8}
+    .actions button{height:30px;padding:0 8px;border-radius:10px}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+    .stat{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+    .stat strong{color:var(--text);font-weight:600}
+    .meta{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--muted)}
+    canvas{width:100%!important;height:90px!important;margin-top:10px}
+    .badge{background:#121b26;border:1px solid var(--border);color:#c9e4ff;padding:2px 8px;border-radius:999px;font-size:11px}
+    .pin{position:absolute;top:12px;right:12px}
+
+    /* Modal */
+    dialog{border:none;border-radius:16px;padding:0;background:var(--panel);color:var(--text);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+    .modal{padding:18px 18px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+    .modal h3{margin:0;font-size:16px}
+    .modal-body{padding:16px}
+
+    /* Footer */
+    footer{margin:28px 0 8px;color:var(--muted);font-size:12px;display:flex;justify-content:center}
+
+    /* Toast */
+    .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f1822;border:1px solid var(--border);padding:10px 14px;border-radius:12px;font-size:13px;color:#cfe6ff;display:none}
+    .toast.show{display:block}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.6">
+            <path d="M3 12h6l3-8 3 8h6l-5 4 2 7-6-4-6 4 2-7-5-4z"/>
+          </svg>
+        </div>
+        <div>
+          <h1>RepoRadar</h1>
+          <div class="sub">Frontend‑only GitHub dashboard · no backend</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Data fetched directly; stored locally</div>
+        <div class="sep"></div>
+        <button class="ghost" id="openSettings">Settings</button>
+        <button id="refreshBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg> Refresh</button>
+      </div>
+    </header>
+
+    <section class="controls">
+      <input id="owner" placeholder="owner (e.g. vercel)" />
+      <input id="name" placeholder="repo (e.g. next.js)" />
+      <select id="days">
+        <option value="14">Last 14 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="60">Last 60 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+      <button class="primary" id="addRepo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg> Add</button>
+      <button class="ghost" id="exportBtn">Export</button>
+    </section>
+
+    <section class="grid" id="grid"></section>
+
+    <footer>
+      <div>Tip: add a GitHub Personal Access Token in Settings for higher API rate limits. Your token never leaves your browser.</div>
+    </footer>
+  </div>
+
+  <!-- Settings Modal -->
+  <dialog id="settings">
+    <div class="modal">
+      <h3>Settings</h3>
+      <button id="closeSettings" class="ghost">Close</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-bottom:10px">
+        <div>
+          <label>GitHub Token (fine‑grained or classic)</label>
+          <input id="token" placeholder="ghp_…" />
+        </div>
+        <button id="saveToken" class="primary">Save</button>
+      </div>
+      <div class="sub">Stored in localStorage. Remove to use unauthenticated calls (low rate limits).</div>
+      <div style="height:12px"></div>
+      <button id="importBtn">Import profile…</button>
+      <button id="wipeBtn" style="margin-left:8px;color:#ffb4a8;border-color:#3a1e20;background:#1a0f11">Wipe local data</button>
+    </div>
+  </dialog>
+
+  <!-- Details Modal -->
+  <dialog id="details">
+    <div class="modal">
+      <h3 id="detailsTitle">Repo details</h3>
+      <button id="closeDetails" class="ghost">Close</button>
+    </div>
+    <div class="modal-body">
+      <canvas id="detailsChart"></canvas>
+      <div id="detailsInfo" class="sub" style="margin-top:10px"></div>
+      <div style="margin-top:12px;display:flex;gap:10px">
+        <a id="repoLink" target="_blank" rel="noreferrer"><button>Open Repo</button></a>
+        <a id="prLink" target="_blank" rel="noreferrer"><button>Pull Requests</button></a>
+        <a id="relLink" target="_blank" rel="noreferrer"><button>Releases</button></a>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+// ------------------------------
+// RepoRadar — HTML/CSS/JS only
+// ------------------------------
+const LS_KEY = 'reporadar:v1';
+const state = load();
+const grid = document.getElementById('grid');
+const ownerEl = document.getElementById('owner');
+const nameEl = document.getElementById('name');
+const daysEl = document.getElementById('days');
+const addBtn = document.getElementById('addRepo');
+const refreshBtn = document.getElementById('refreshBtn');
+const exportBtn = document.getElementById('exportBtn');
+const tokenInput = document.getElementById('token');
+const settings = document.getElementById('settings');
+const details = document.getElementById('details');
+const openSettingsBtn = document.getElementById('openSettings');
+const closeSettingsBtn = document.getElementById('closeSettings');
+const saveTokenBtn = document.getElementById('saveToken');
+const importBtn = document.getElementById('importBtn');
+const wipeBtn = document.getElementById('wipeBtn');
+const toast = document.getElementById('toast');
+
+let repoCache = {}; // key -> data
+let charts = {};    // key -> Chart.js instance
+
+// Init UI
+if (state.days) daysEl.value = String(state.days);
+if (state.token) tokenInput.value = state.token;
+renderAll();
+
+openSettingsBtn.onclick = () => settings.showModal();
+closeSettingsBtn.onclick = () => settings.close();
+saveTokenBtn.onclick = () => { state.token = tokenInput.value.trim(); save(); toastMsg('Token saved'); };
+importBtn.onclick = () => importProfile();
+wipeBtn.onclick = () => { localStorage.removeItem(LS_KEY); location.reload(); };
+
+addBtn.onclick = () => {
+  const owner = ownerEl.value.trim();
+  const name = nameEl.value.trim();
+  if (!owner || !name) return toastMsg('Enter both owner and repo name');
+  const key = owner + '/' + name;
+  if (state.repos.find(r => r.owner.toLowerCase()+'/'+r.name.toLowerCase() === key.toLowerCase())) return toastMsg('Already added');
+  state.repos.push({owner, name});
+  save();
+  ownerEl.value = '';
+  nameEl.value = '';
+  fetchAndRenderOne({owner, name});
+};
+
+refreshBtn.onclick = () => { renderAll(true); };
+exportBtn.onclick = () => {
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'reporadar-profile.json';
+  a.click();
+};
+
+daysEl.onchange = () => { state.days = Number(daysEl.value); save(); renderAll(true); };
+
+document.addEventListener('click', (e) => {
+  if (e.target.matches('.remove')) {
+    const key = e.target.getAttribute('data-key');
+    state.repos = state.repos.filter(r => (r.owner+'/'+r.name) !== key);
+    save();
+    document.querySelector(`[data-card="${key}"]`)?.remove();
+  } else if (e.target.matches('.pin')) {
+    const key = e.target.getAttribute('data-key');
+    const pinned = repoCache[key]?.pinned = !repoCache[key]?.pinned;
+    sortCards();
+  } else if (e.target.matches('.open')) {
+    const key = e.target.getAttribute('data-key');
+    openDetails(key);
+  }
+});
+
+function load(){
+  const raw = localStorage.getItem(LS_KEY);
+  if (!raw) return { repos: [], token: '', days: 30 };
+  try { return JSON.parse(raw); } catch { return { repos: [], token: '', days: 30 } }
+}
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+
+function toastMsg(msg){ toast.textContent = msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 1500); }
+
+function isoDaysAgo(days){ const d=new Date(); d.setDate(d.getDate()-days); return d.toISOString(); }
+function num(n){ return (n===undefined||n===null) ? '—' : new Intl.NumberFormat().format(n); }
+function timeAgo(iso){ if(!iso) return '—'; const diff=Date.now()-new Date(iso).getTime(); const m=Math.floor(diff/60000); if(m<60) return m+'m ago'; const h=Math.floor(m/60); if(h<48) return h+'h ago'; const d=Math.floor(h/24); return d+'d ago'; }
+
+async function gh(path){
+  const res = await fetch('https://api.github.com'+path, { headers: {
+    'Accept':'application/vnd.github+json',
+    ...(state.token? { 'Authorization': 'Bearer '+state.token } : {}),
+    'X-GitHub-Api-Version': '2022-11-28'
+  }});
+  if (!res.ok) throw new Error(res.status+' '+res.statusText);
+  return res.json();
+}
+
+function cardSkeleton(key, owner, name){
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.dataset.card = key;
+  el.innerHTML = `
+    <div class="card-head">
+      <div>
+        <div class="title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 3.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 3.77 5.44 5.44 0 0 0 3.5 8.52c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          <a href="https://github.com/${owner}/${name}" target="_blank" rel="noreferrer">${owner}/${name}</a>
+          <span class="badge" data-pin="${key}" style="display:none">Pinned</span>
+        </div>
+        <div class="desc" data-desc="${key}">Loading…</div>
+      </div>
+      <div class="actions">
+        <button title="Pin" class="pin" data-key="${key}">📌</button>
+        <button title="Open details" class="open" data-key="${key}">📊</button>
+        <button title="Remove" class="remove" data-key="${key}">🗑️</button>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat">⭐ <strong data-stars="${key}">—</strong></div>
+      <div class="stat">🍴 <strong data-forks="${key}">—</strong></div>
+      <div class="stat">PRs <strong data-prs="${key}">—</strong></div>
+      <div class="stat">Issues <strong data-issues="${key}">—</strong></div>
+    </div>
+    <canvas id="chart-${cssEscape(key)}"></canvas>
+    <div class="meta"><div>Latest release: <span data-rel="${key}">—</span></div><div>Updated <span data-upd="${key}">—</span></div></div>
+  `;
+  return el;
+}
+
+function cssEscape(s){ return s.replace(/[^a-zA-Z0-9_-]/g,'_'); }
+
+async function fetchRepoData(owner, name){
+  const key = owner+'/'+name;
+  const since = isoDaysAgo(state.days||30);
+  // repo meta
+  const meta = await gh(`/repos/${owner}/${name}`);
+  // open PRs via search API
+  let openPrs = 0; try { const pr = await gh(`/search/issues?q=repo:${owner}/${name}+is:pr+is:open&per_page=1`); openPrs = pr.total_count || 0; } catch(_){}
+  // releases latest
+  let latestTag = '—', latestAt = ''; try { const rel = await gh(`/repos/${owner}/${name}/releases/latest`); latestTag = rel.tag_name; latestAt = rel.published_at || rel.created_at; } catch(_){}
+  // commits since — paginate a bit
+  const per = 100; let page = 1; const counts = {};
+  while(true){
+    const arr = await gh(`/repos/${owner}/${name}/commits?since=${encodeURIComponent(since)}&per_page=${per}&page=${page}`);
+    if (!Array.isArray(arr) || arr.length===0) break;
+    for (const c of arr){
+      const d = new Date(c.commit.author.date).toISOString().slice(0,10);
+      counts[d] = (counts[d]||0)+1;
+    }
+    if (arr.length < per || page>4) break; // soft cap
+    page++;
+  }
+  // build series
+  const series = [];
+  const start = new Date(since);
+  const N = Number(state.days||30);
+  for (let i=0;i<N;i++){
+    const d = new Date(start.getTime()); d.setDate(start.getDate()+i);
+    const k = d.toISOString().slice(0,10);
+    series.push({ t: k, count: counts[k]||0 });
+  }
+  return { key, meta, openPrs, latestTag, latestAt, series };
+}
+
+function renderAll(force=false){
+  grid.innerHTML='';
+  repoCache={};
+  const list = [...state.repos];
+  // Render skeletons first
+  for (const r of list){
+    const key = r.owner+'/'+r.name;
+    grid.appendChild(cardSkeleton(key, r.owner, r.name));
+  }
+  // Fetch sequentially to avoid rate-limit spikes
+  (async ()=>{
+    for (const r of list){ await fetchAndRenderOne(r, force); }
+    sortCards();
+  })();
+}
+
+async function fetchAndRenderOne(r, force=false){
+  const key = r.owner+'/'+r.name;
+  const card = document.querySelector(`[data-card="${key}"]`);
+  try{
+    const data = await fetchRepoData(r.owner, r.name);
+    repoCache[key] = { pinned: repoCache[key]?.pinned||false, ...data };
+    // Fill UI
+    card.querySelector(`[data-desc="${key}"]`).textContent = data.meta.description || '';
+    card.querySelector(`[data-stars="${key}"]`).textContent = num(data.meta.stargazers_count);
+    card.querySelector(`[data-forks="${key}"]`).textContent = num(data.meta.forks_count);
+    card.querySelector(`[data-issues="${key}"]`).textContent = num(data.meta.open_issues_count);
+    card.querySelector(`[data-prs="${key}"]`).textContent = num(data.openPrs);
+    card.querySelector(`[data-upd="${key}"]`).textContent = timeAgo(data.meta.pushed_at);
+    card.querySelector(`[data-rel="${key}"]`).textContent = data.latestTag || '—';
+    // Chart
+    drawChart('chart-'+cssEscape(key), data.series);
+    // Pin badge
+    card.querySelector(`[data-pin="${key}"]`).style.display = repoCache[key].pinned? 'inline-block':'none';
+  }catch(e){
+    card.querySelector(`[data-desc="${key}"]`).textContent = 'Error: '+e.message;
+  }
+}
+
+function drawChart(canvasId, series){
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  if (charts[canvasId]) charts[canvasId].destroy();
+  charts[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: series.map(p=>p.t),
+      datasets: [{
+        data: series.map(p=>p.count),
+        tension:.35, fill:true, pointRadius:0, borderWidth:2,
+        borderColor:getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()||'#3aa0ff',
+        backgroundColor: ctx.createLinearGradient(0,0,0,120)
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales:{x:{display:false}, y:{display:false}},
+      plugins:{legend:{display:false}, tooltip:{enabled:true, displayColors:false}}
+    }
+  });
+  // gradient fill
+  const g = charts[canvasId].data.datasets[0].backgroundColor;
+  if (g.addColorStop){ g.addColorStop(0,'rgba(58,160,255,.25)'); g.addColorStop(1,'rgba(58,160,255,0)'); charts[canvasId].update(); }
+}
+
+function sortCards(){
+  // pinned first, then by pushed_at desc
+  const cards = Array.from(grid.children);
+  cards.sort((a,b)=>{
+    const ka = a.dataset.card, kb = b.dataset.card;
+    const pa = repoCache[ka]?.pinned ? 0:1;
+    const pb = repoCache[kb]?.pinned ? 0:1;
+    if (pa!==pb) return pa-pb;
+    const ta = repoCache[ka]?.meta?.pushed_at ? new Date(repoCache[ka].meta.pushed_at).getTime() : 0;
+    const tb = repoCache[kb]?.meta?.pushed_at ? new Date(repoCache[kb].meta.pushed_at).getTime() : 0;
+    return tb - ta;
+  });
+  for (const c of cards) grid.appendChild(c);
+  // update pin badges
+  for (const key in repoCache){
+    const badge = document.querySelector(`[data-pin="${key}"]`);
+    if (badge) badge.style.display = repoCache[key].pinned? 'inline-block':'none';
+  }
+}
+
+function openDetails(key){
+  const r = repoCache[key]; if (!r) return;
+  document.getElementById('detailsTitle').textContent = key;
+  document.getElementById('repoLink').href = `https://github.com/${key}`;
+  document.getElementById('prLink').href = `https://github.com/${key}/pulls`;
+  document.getElementById('relLink').href = `https://github.com/${key}/releases`;
+  document.getElementById('detailsInfo').textContent = `Latest release: ${r.latestTag||'—'} · Updated ${timeAgo(r.meta.pushed_at)}`;
+  details.showModal();
+  const ctx = document.getElementById('detailsChart').getContext('2d');
+  if (charts['details']) charts['details'].destroy();
+  charts['details'] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: r.series.map(p=>p.t), datasets: [{ data: r.series.map(p=>p.count) }] },
+    options: { responsive:true, maintainAspectRatio:false, scales:{x:{display:false},y:{display:false}}, plugins:{legend:{display:false}} }
+  });
+}
+
+document.getElementById('closeDetails').onclick = () => details.close();
+
+async function importProfile(){
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'application/json';
+  inp.onchange = async () => {
+    const file = inp.files[0]; if(!file) return;
+    try {
+      const json = JSON.parse(await file.text());
+      if (!json || !Array.isArray(json.repos)) throw new Error('Invalid profile');
+      localStorage.setItem(LS_KEY, JSON.stringify(json));
+      location.reload();
+    } catch(e){ toastMsg('Import failed: '+e.message); }
+  };
+  inp.click();
+}
+
+// initial fetch
+(async()=>{
+  for (const r of state.repos){ await fetchAndRenderOne(r); }
+  sortCards();
+})();
+</script>
+</body>
+</html>
